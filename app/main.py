@@ -4,7 +4,7 @@ import config
 import fastapi
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -44,7 +44,7 @@ def root():
     return {"message": "Welcome to my API!!"}
 
 # GET ALL the posts from the database
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post])
 def get_posts(db: Session = Depends(get_db)):
     '''
     Traditinal sql:
@@ -52,10 +52,10 @@ def get_posts(db: Session = Depends(get_db)):
     posts = cursor.fetchall()
     '''
     posts = db.query(models.Post).all()
-    return {"data": posts}
+    return posts
 
 # CREATE a post. # and commit the changes to the database.
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
 def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     '''
     Traditinal sql:
@@ -67,16 +67,16 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     db.add(new_post)
     db.commit() # commit the changes to the database
     db.refresh(new_post)
-    return {"data": new_post}
+    return new_post
 
 # The order of the routes matter. If the lastest path was under the post{id}-rotute it will be confuesd by a different route
 @app.get("/posts/latest")
 def get_latest_post():
     post = my_posts[len(my_posts) - 1]
-    return {"detail": post}
+    return post
 
-# T GET POST BY ID --the id in the route is path parameter
-@app.get("/posts/{id}")
+#GET POST BY ID --the id in the route is path parameter
+@app.get("/posts/{id}", response_model=schemas.Post)
 def get_post(id: int, db: Session = Depends(get_db)):
     '''
     cursor.execute("""SELECT * FROM posts WHERE id= %s """, (str(id)))
@@ -85,7 +85,7 @@ def get_post(id: int, db: Session = Depends(get_db)):
     post = db.query(models.Post).filter(models.Post.id == id).first()  
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id:{id} was not found")
-    return {"post_detail": post}
+    return post
 
 # DELETE POST BY ID
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -101,7 +101,7 @@ def delete_post(id: int, db: Session = Depends(get_db)):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # UPDATE POST BY ID
-@app.put("/posts/{id}")
+@app.put("/posts/{id}", response_model=schemas.Post)
 def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute("""UPDATE posts SET title= %s, content= %s, published = %s WHERE id = %s RETURNING*""", (post.title, post.content, post.published, str(id)))
     # updated_post = cursor.fetchone()
@@ -116,4 +116,4 @@ def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends
     post_query.update(updated_post.dict(), synchronize_session=False)
 
     db.commit() # commit the changes to the database
-    return {'data': post_query.first()}
+    return post_query.first()

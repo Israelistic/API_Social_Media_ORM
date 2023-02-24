@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 # Create a class for validation == schema validation - dfine what a post should look like
 
 
@@ -12,3 +13,9 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     pass
 
+
+class Post(PostBase):
+    id: str
+    created_at: datetime
+    class Config:
+        orm_mode = True
