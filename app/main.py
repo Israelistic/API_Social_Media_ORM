@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0, '/Users/hlerman/Documents/development/python/API_Social_Media_ORM/app')
-import config
+# import config
 import fastapi
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from pydantic import BaseModel
@@ -10,10 +10,12 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 from sqlalchemy.orm import Session
-from . import models, schemas
+# imports from local files
+from . import models, schemas, utils, config
+# import from database.py that contains the db connection setting
 from .database import engine, get_db
 
-# from psycopg2.extras import RealDictCursor
+
 models.Base.metadata.create_all(bind=engine)
 
 
@@ -117,3 +119,27 @@ def update_post(id: int, updated_post: schemas.PostCreate, db: Session = Depends
 
     db.commit() # commit the changes to the database
     return post_query.first()
+
+
+# USER CREATE
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    
+    #hash the password - user.password
+    hashed_password = utils.hash(user.password)
+    user.password = hashed_password
+
+    new_user = models.User(**user.dict())
+    db.add(new_user)
+    db.commit() # commit the changes to the database
+    db.refresh(new_user)
+    
+    return new_user
+
+@app.get("/users/{id}", response_model=schemas.UserOut)
+def get_user(id: int,  db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User  with id {id} does not exist")
+
+    return user
